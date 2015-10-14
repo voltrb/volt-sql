@@ -1,12 +1,15 @@
 require 'spec_helper'
+require_relative 'helpers'
 
 describe Volt::Sql::TableReconcile do
-  let(:db_adapter) { Volt::DataStore.fetch }
-  let(:db) { db_adapter.db }
+  let(:db_adaptor) { Volt::DataStore.fetch }
+  let(:db) { db_adaptor.db }
   before do
     # Access store, so we trigger cleanup after
     store
   end
+
+  include Volt::Spec::Helpers
 
   it 'should create a table when a new model is defined' do
     expect(db.tables).to_not include(:sample_model1)
@@ -15,8 +18,8 @@ describe Volt::Sql::TableReconcile do
       temporary
     end
 
-    # Get the db to trigger the reconcile
-    db_adapter.db
+    reconcile!
+
     expect(db.tables).to include(:sample_model1s)
   end
 
@@ -33,14 +36,14 @@ describe Volt::Sql::TableReconcile do
       field :is_admin, Volt::Boolean
     end
 
-    adapter = db_adapter.adapter
+    adaptor_name = db_adaptor.adaptor_name
 
-    reconcile = Volt::Sql::TableReconcile.new(db, SampleModel2)
+    reconcile = Volt::Sql::TableReconcile.new(db_adaptor, db, SampleModel2)
     reconcile.run
     db_fields = reconcile.db_fields_for_table(:sample_model2s)
 
     schema = {
-      :id=>{:db_type=>"text", :default=>nil, :allow_null=>false, :primary_key=>false, :type=>:string, :ruby_default=>nil},
+      :id=>{:db_type=>"text", :default=>nil, :allow_null=>false, :primary_key=>true, :type=>:string, :auto_increment=>false, :ruby_default=>nil},
       :extra=>{:db_type=>"json", :default=>nil, :allow_null=>true, :primary_key=>false, :type=>:json, :ruby_default=>nil},
       :created_at=>{:db_type=>"timestamp without time zone", :default=>nil, :allow_null=>true, :primary_key=>false, :type=>:datetime, :ruby_default=>nil},
       :count=>{:db_type=>"integer", :default=>nil, :allow_null=>true, :primary_key=>false, :type=>:integer, :ruby_default=>nil},
@@ -50,7 +53,7 @@ describe Volt::Sql::TableReconcile do
       :place => {:db_type=>"text", :default=>nil, :allow_null=>false, :primary_key=>false, :type=>:string, :ruby_default=>nil}
     }
 
-    if adapter == 'sqlite'
+    if adaptor_name == 'sqlite'
       schema[:name] = {:db_type=>"text", :default=>nil, :allow_null=>true, :primary_key=>false, :type=>:string, :ruby_default=>nil}
     else
       schema[:name] = {:db_type=>"text", :default=>nil, :allow_null=>true, :primary_key=>false, :type=>:string, :ruby_default=>nil}
@@ -87,21 +90,20 @@ describe Volt::Sql::TableReconcile do
       field :some_num, Fixnum
     end
 
-    # Calling db runs pending reconciles
-    db_adapter.db
+    reconcile!
+
     expect(db.tables).to include(:sample_model3s)
 
-    Volt::RootModels.remove_model_class(SampleModel3)
-    Object.send(:remove_const, :SampleModel3)
+    remove_model(SampleModel3)
 
-    db_adapter.skip_reconcile do
+    db_adaptor.skip_reconcile do
       class SampleModel3 < Volt::Model
         temporary
         field :some_num, String
       end
     end
 
-    reconcile = Volt::Sql::TableReconcile.new(db, SampleModel3)
+    reconcile = Volt::Sql::TableReconcile.new(db_adaptor, db, SampleModel3)
 
     allow(reconcile.field_updater).to receive(:generate_and_run)
     .with(
@@ -119,20 +121,19 @@ describe Volt::Sql::TableReconcile do
       field :some_num, Fixnum
     end
 
-    # Calling db runs pending reconciles
-    db_adapter.db
+    reconcile!
+
     expect(db.tables).to include(:sample_model4s)
 
-    Volt::RootModels.remove_model_class(SampleModel4)
-    Object.send(:remove_const, :SampleModel4)
+    remove_model(SampleModel4)
 
-    db_adapter.skip_reconcile do
+    db_adaptor.skip_reconcile do
       class SampleModel4 < Volt::Model
         temporary
       end
     end
 
-    reconcile = Volt::Sql::TableReconcile.new(db, SampleModel4)
+    reconcile = Volt::Sql::TableReconcile.new(db_adaptor, db, SampleModel4)
 
     expect(reconcile.field_updater).to receive(:generate_and_run)
     .with(
@@ -150,21 +151,20 @@ describe Volt::Sql::TableReconcile do
       field :some_num, Fixnum
     end
 
-    # Calling db runs pending reconciles
-    db_adapter.db
+    reconcile!
+
     expect(db.tables).to include(:sample_model5s)
 
-    Volt::RootModels.remove_model_class(SampleModel5)
-    Object.send(:remove_const, :SampleModel5)
+    remove_model(SampleModel5)
 
-    db_adapter.skip_reconcile do
+    db_adaptor.skip_reconcile do
       class SampleModel5 < Volt::Model
         temporary
         field :some_num, Fixnum, nil: false
       end
     end
 
-    reconcile = Volt::Sql::TableReconcile.new(db, SampleModel5)
+    reconcile = Volt::Sql::TableReconcile.new(db_adaptor, db, SampleModel5)
 
     expect(reconcile.field_updater).to receive(:generate_and_run)
     .with(

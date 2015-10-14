@@ -2,6 +2,7 @@
 # to the model state.
 require 'sql/lib/sql_logger'
 require 'sql/lib/field_updater'
+require 'sql/lib/index_updater'
 
 module Volt
   module Sql
@@ -10,8 +11,10 @@ module Volt
 
       attr_reader :field_updater
 
-      def initialize(db, model_class)
+      def initialize(adaptor, db, model_class)
+        raise "BROKE HERE" unless adaptor
         @model_class = model_class
+        @adaptor = adaptor
         @db = db
         @field_updater = FieldUpdater.new(@db, self)
       end
@@ -23,6 +26,8 @@ module Volt
 
         update_fields(@model_class, table_name)
 
+        IndexUpdater.new(@db, @model_class, table_name)
+
         @model_class.reconciled = true
       end
 
@@ -31,14 +36,23 @@ module Volt
         # Check if table exists
         if !@db.tables || !@db.tables.include?(table_name)
           log("Creating Table #{table_name}")
+          adaptor_name = @adaptor.adaptor_name
           @db.create_table(table_name) do
             # guid id
-            column :id, String, :unique => true, :null => false
+            column :id, String, :unique => true, :null => false, :primary_key => true
 
             # When using underscore notation on a field that does not exist, the
             # data will be stored in extra.
-            column :extra, 'json'
+            if adaptor_name == 'postgres'
+              # Use jsonb
+              column :extra, 'json'
+            else
+              column :extra, String
+            end
           end
+          # TODO: there's some issue with @db.schema and no clue why, but I
+          # have to run this again to get .schema to work later.
+          @db.tables
         end
       end
 
@@ -50,10 +64,8 @@ module Volt
 
       # Pulls the db_fields out of sequel
       def db_fields_for_table(table_name)
-        table = @db[table_name]
-
         db_fields = {}
-        @db.schema(table_name).each do |col|
+        result = @db.schema(table_name).each do |col|
           db_fields[col[0].to_sym] = col[1]
         end
 

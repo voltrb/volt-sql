@@ -8,10 +8,17 @@ module Volt
           add_query_part(:offset, *args)
         end
 
-        def count
-          cursor = add_query_part(:count)
+        # Count without arguments or a block makes its own query to the backend.
+        # If you pass an arg or block, it will run ```all``` on the Cursor, then
+        # run a normal ruby ```.count``` on it, passing the args.
+        def count(*args, &block)
+          if args || block
+            @model.reactive_count(*args, &block)
+          else
+            cursor = add_query_part(:count)
 
-          cursor.persistor.value
+            cursor.persistor.value
+          end
         end
       end
 
@@ -31,18 +38,40 @@ module Volt
 
       Volt::ArrayModel.send(:include, SqlArrayModel)
 
-      def self.normalize_query(query)
-        query = merge_finds_and_move_to_front(query)
 
-        query = reject_order_zero(query)
+      # In the volt query dsl (and sql), there's a lot of ways to express the
+      # same query.  Its better for performance however if queries can be
+      # uniquely identified.  To make that happen, we normalize queries.
+      def self.normalize_query(query)
+        # query = convert_wheres_to_block(query)
+        query = merge_wheres_and_move_to_front(query)
+
+        query = reject_offset_zero(query)
 
         query
       end
 
-      def self.merge_finds_and_move_to_front(query)
+      # Where's can use either a hash arg, or a block.  If the where has a hash
+      # arg, we convert it to block style, so it can be unified.
+      def self.convert_wheres_to_block(query)
+        wheres = []
+
+        query.reject! do |query_part|
+          if query_part[0] == 'where'
+            wheres << query_part
+            # reject
+            true
+          else
+            # keep
+            false
+          end
+        end
+      end
+
+      def self.merge_wheres_and_move_to_front(query)
         # Map first parts to string
         query = query.map { |v| v[0] = v[0].to_s; v }
-        # has_find = query.find { |v| v[0] == 'find' }
+        has_where = query.find { |v| v[0] == 'find' }
 
         # if has_find
         #   # merge any finds
@@ -70,9 +99,9 @@ module Volt
         query
       end
 
-      def self.reject_order_zero(query)
+      def self.reject_offset_zero(query)
         query.reject do |query_part|
-          query_part[0] == 'order' && query_part[1] == 0
+          query_part[0] == 'offset' && query_part[1] == 0
         end
       end
 

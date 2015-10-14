@@ -16,14 +16,14 @@ module Volt
       attr_reader :db
       def initialize(adaptor, db)
         @adaptor = adaptor
-        @db      = db
+        @db = db
       end
 
       # reconcile takes the database from its current state to the state defined
       # in the model classes with the field helper
       def reconcile!
         Volt::RootModels.model_classes.each do |model_class|
-          TableReconcile.new(@db, model_class).run
+          TableReconcile.new(@adaptor, @db, model_class).run
         end
 
         # After the initial reconcile!, we add a listener for any new models

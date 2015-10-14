@@ -101,6 +101,16 @@ module Volt
         return klass, options
       end
 
+      # When asking for indexes on a table, the deferrable option will show
+      # as nil if it wasn't set, we remove this to normalize it to the volt
+      # options.
+      def self.normalized_indexes_from_table(db, table_name)
+        db.indexes(table_name).map do |name, options|
+          # Remove the deferrable that defaults to false (nil)
+          options = options.reject {|key, value| key == :deferrable && !value }
+          [name, options]
+        end.to_h
+      end
     end
   end
 end

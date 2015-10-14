@@ -27,7 +27,7 @@ module Volt
     class SqlAdaptorServer < BaseAdaptorServer
       include Volt::Sql::SqlLogger
 
-      attr_reader :db, :sql_db, :adapter
+      attr_reader :db, :sql_db, :adaptor_name
 
       # :reconcile_complete is set to true after the initial load and reconcile.
       # Any models created after this point will attempt to be auto-reconciled.
@@ -37,6 +37,8 @@ module Volt
 
       def initialize(*args)
         @db_mutex = Mutex.new
+
+        Sequel.default_timezone = :utc
         super
       end
 
@@ -66,7 +68,7 @@ module Volt
         @db_mutex.synchronize do
           unless @db
             begin
-              @adapter = connect_to_db
+              @adaptor_name = connect_to_db
 
               @db.test_connection
             rescue Sequel::DatabaseConnectionError => e
@@ -85,19 +87,19 @@ module Volt
                   'mysql2'   => "gem 'mysql2'"
                 }
 
-                adapter_name = missing_gem[1]
-                if (helper = helpers[adapter_name])
+                adaptor_name = missing_gem[1]
+                if (helper = helpers[adaptor_name])
                   helper = "\nMake sure you have the following in your gemfile:\n" + helper + "\n\n"
                 else
                   helper = ''
                 end
-                raise NameError.new("LoadError: cannot load the #{adapter_name} gem.#{helper}")
+                raise NameError.new("LoadError: cannot load the #{adaptor_name} gem.#{helper}")
               else
                 raise
               end
             end
 
-            if @adapter == 'postgres'
+            if @adaptor_name == 'postgres'
               @db.extension :pg_json
               # @db.extension :pg_json_ops
             end
@@ -114,7 +116,7 @@ module Volt
       end
 
       # @param - a string URI, or a Hash of options
-      # @param - the adapter name
+      # @param - the adaptor name
       def connect_uri_or_options
         # check to see if a uri was specified
         conf = Volt.config
@@ -122,37 +124,41 @@ module Volt
         uri = conf.db && conf.db.uri
 
         if uri
-          adapter = uri[/^([a-z]+)/]
+          adaptor = uri[/^([a-z]+)/]
 
-          return uri, adapter
+          return uri, adaptor
         else
-          adapter = (conf.db && conf.db.adapter || 'sqlite').to_s
-          if adapter == 'sqlite'
+          adaptor = (conf.db && conf.db.adapter || 'sqlite').to_s
+          if adaptor == 'sqlite'
             # Make sure we have a config/db folder
             FileUtils.mkdir_p('config/db')
           end
 
           data = Volt.config.db.to_h.symbolize_keys
           data[:database] ||= "config/db/#{Volt.env.to_s}.db"
-          data[:adapter]  ||= adapter
+          data[:adapter]  ||= adaptor
 
-          return data, adapter
+          return data, adaptor
         end
       end
 
       def connect_to_db
-        uri_opts, adapter = connect_uri_or_options
+        uri_opts, adaptor = connect_uri_or_options
 
         @db = Sequel.connect(uri_opts)
 
-        adapter
+        if adaptor == 'sqlite'
+          @db.set_integer_booleans
+        end
+
+        adaptor
       end
 
       # In order to create the database, we have to connect first witout the
       # database.
       def create_missing_database
         @db.disconnect
-        uri_opts, adapter = connect_uri_or_options
+        uri_opts, adaptor = connect_uri_or_options
 
         if uri_opts.is_a?(String)
           # A uri
@@ -192,9 +198,11 @@ module Volt
       def skip_reconcile
         @skip_reconcile = true
 
-        yield
-
-        @skip_reconcile = false
+        begin
+          yield
+        ensure
+          @skip_reconcile = false
+        end
       end
 
       # Called when the db gets reset (from specs usually)
@@ -217,9 +225,11 @@ module Volt
         # TODO: we should move this to a real upsert
         begin
           table.insert(values)
+          log(table.insert_sql(values))
         rescue Sequel::UniqueConstraintViolation => e
           # Already a record, update
           id = values[:id]
+          log(table.where(id: id).update_sql(values))
           table.where(id: id).update(values)
         end
 
