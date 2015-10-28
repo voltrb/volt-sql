@@ -1,8 +1,8 @@
-# The base class for migrations
+# Add database methods for the migration class
 module Volt
   class Migration
-    def initialize(db)
-      @db = db
+    def initialize(db=nil)
+      @db = db || Volt.current_app.database.db
     end
 
     def add_column(table_name, column_name, klasses, options={})
@@ -43,5 +43,10 @@ module Volt
       end
     end
 
+    def set_column_default(table_name, column_name, default)
+      @db.alter_table(table_name) do
+        set_column_default(column_name, default)
+      end
+    end
   end
 end

@@ -18,10 +18,13 @@ module Volt
         {
           :text => :text,
           :size => :max_length,
-          :nil  => :allow_null
+          :nil  => :allow_null,
+          :default => :ruby_default
         }.each_pair do |opts_key, db_key|
           options[opts_key] = db_field[db_key] if db_field.has_key?(db_key)
         end
+
+        options.delete(:default) if options[:default] == nil
 
         db_type = db_field[:db_type].to_sym
 
@@ -29,7 +32,7 @@ module Volt
         when :string
           klasses << String
         when :datetime
-          klasses << Time
+          klasses << VoltTime
         when :boolean
           klasses << Volt::Boolean
         when :float
@@ -94,6 +97,8 @@ module Volt
           else
             options[:text] = true
           end
+        elsif klass == VoltTime
+          klass = Time
         elsif klass == Volt::Boolean || klass == TrueClass || klass == FalseClass
           klass = TrueClass # what sequel uses for booleans
         end

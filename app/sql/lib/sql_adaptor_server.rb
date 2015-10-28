@@ -3,11 +3,12 @@ require 'sequel/extensions/pg_json'
 require 'sql/lib/where_call'
 require 'fileutils'
 require 'thread'
-require 'sql/lib/migrations'
+require 'sql/lib/migration'
 require 'sql/lib/migration_generator'
 require 'sql/lib/reconcile'
 require 'sql/lib/sql_logger'
 require 'sql/lib/helper'
+require 'volt/utils/data_transformer'
 
 # We need to be able to deeply symbolize keys for sql
 class Hash
@@ -272,6 +273,7 @@ module Volt
         end
 
         if result.respond_to?(:all)
+          log(result.sql)
           result = result.all.map do |hash|
             # Volt expects symbol keys
             hash.symbolize_keys
@@ -313,8 +315,17 @@ module Volt
 
       # Take the values and symbolize them, and also remove any values that
       # aren't going in fields and move them into extra.
+      #
+      # Then change VoltTime's to Time for Sequel
       def pack_values(collection, values)
         values = values.nested_symbolize_keys
+        values = Volt::DataTransformer.transform(values) do |value|
+          if defined?(VoltTime) && value.is_a?(VoltTime)
+            value.to_time
+          else
+            value
+          end
+        end
 
         klass = Volt::Model.class_at_path([collection])
         # Find any fields in values that aren't defined with a ```field```,
@@ -342,8 +353,10 @@ module Volt
 
       # Loop through the inputs array and change values in place to be unpacked.
       # Unpacking means moving the extra field out and into the main fields.
+      #
+      # Then transform Time to VoltTime
       def unpack_values!(inputs)
-        inputs.each do |values|
+        values = inputs.each do |values|
           extra = values.delete(:extra)
 
           if extra
@@ -355,6 +368,16 @@ module Volt
             end
           end
         end
+
+        values = Volt::DataTransformer.transform(values) do |value|
+          if defined?(VoltTime) && value.is_a?(Time)
+            value = VoltTime.from_time(value)
+          else
+            value
+          end
+        end
+
+        values
       end
 
     end

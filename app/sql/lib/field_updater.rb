@@ -27,6 +27,7 @@ module Volt
           db_class, db_opts = @table_reconcile.sequel_class_and_opts_from_db(db_field)
 
           if db_class != sequel_class || db_opts != sequel_opts
+
             # Data type has changed, migrate
             up_code = []
             down_code = []
@@ -94,17 +95,7 @@ module Volt
       def generate_and_run(name, up_code, down_code)
         path = Volt::Sql::MigrationGenerator.create_migration(name, up_code, down_code)
 
-        require(path)
-
-        klass_name = name.camelize
-        # Load the class
-        klass = Object.const_get(klass_name)
-
-        # Run the up migration
-        klass.new(@db).up
-
-        # Remove the object
-        Object.send(:remove_const, klass_name.to_sym)
+        Volt::MigrationRunner.new(@db).run_migration(path, :up)
       end
 
     end

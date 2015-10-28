@@ -22,7 +22,7 @@ module Volt
           # See if we have a matching columns/options
           if db_indexes[name] == options
             # Matches, ignore it
-            db_index.delete(name)
+            db_indexes.delete(name)
           else
             # Something changed, if a db_index for the name exists,
             # delete it, because the options changed

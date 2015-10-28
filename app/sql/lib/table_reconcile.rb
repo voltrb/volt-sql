@@ -12,7 +12,6 @@ module Volt
       attr_reader :field_updater
 
       def initialize(adaptor, db, model_class)
-        raise "BROKE HERE" unless adaptor
         @model_class = model_class
         @adaptor = adaptor
         @db = db

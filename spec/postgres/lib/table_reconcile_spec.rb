@@ -30,7 +30,7 @@ describe Volt::Sql::TableReconcile do
       field :name, String
       field :title, String, size: 50
       field :place, String, nil: false
-      field :created_at, Time
+      field :created_at, VoltTime
       field :count, Fixnum
       field :cash, Float
       field :is_admin, Volt::Boolean
@@ -65,7 +65,7 @@ describe Volt::Sql::TableReconcile do
 
     # Also check if volt can decode these back to volt field declarations
     klass_and_db_opts = {
-      created_at: [[Time, NilClass], {}],
+      created_at: [[VoltTime, NilClass], {}],
       title: [[String, NilClass], size: 50],
       place: [[String], {}],
       count: [[Fixnum, NilClass], {}],

@@ -1,7 +1,7 @@
 module Volt
   class DataStore
     class SqlAdaptorClient < BaseAdaptorClient
-      data_store_methods :where, :offset, :skip, :order, :limit, :count
+      data_store_methods :where, :offset, :skip, :order, :limit, :count, :includes
 
       module SqlArrayStore
         def skip(*args)
