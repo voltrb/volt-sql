@@ -32,7 +32,7 @@ module Volt
 
       module SqlArrayModel
         def dataset
-          Volt::DataStore.fetch.db.from(collection_name)
+          Volt::DataStore.fetch(Volt.current_app).db.from(collection_name)
         end
       end
 

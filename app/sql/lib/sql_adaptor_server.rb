@@ -10,18 +10,6 @@ require 'sql/lib/sql_logger'
 require 'sql/lib/helper'
 require 'volt/utils/data_transformer'
 
-# We need to be able to deeply symbolize keys for sql
-class Hash
-  def nested_symbolize_keys
-    self.symbolize_keys.map do |key, value|
-      if value.is_a?(Hash)
-        value = value.nested_symbolize_keys
-      end
-
-      [key, value]
-    end.to_h
-  end
-end
 
 module Volt
   class DataStore
@@ -36,11 +24,33 @@ module Volt
       attr_reader :reconcile_complete
 
 
-      def initialize(*args)
+      def initialize(volt_app)
+        @volt_app = volt_app
         @db_mutex = Mutex.new
 
         Sequel.default_timezone = :utc
         super
+
+        # Add an invalidation callback when we add a new field.  This ensures
+        # any fields added after the first db call (which triggers the
+        # reconcile) will reconcile again.
+        inv_reconcile = lambda { invalidate_reconcile! }
+        Volt::Model.instance_eval do
+          alias :__field__ :field
+
+          define_singleton_method(:field) do |*args, &block|
+            # Call original field
+            result = __field__(*args, &block)
+            inv_reconcile.call
+            result
+          end
+        end
+
+        @volt_app.on('boot') do
+          # call ```db``` to reconcile
+          @app_booted = true
+          db
+        end
       end
 
       # Set db_driver on public
@@ -110,7 +120,8 @@ module Volt
             end
           end
 
-          reconcile! if !@reconcile_complete && !skip_reconcile
+          # Don't try to reconcile until the app is booted
+          reconcile! if !skip_reconcile && @app_booted
         end
 
         @db
@@ -252,7 +263,7 @@ module Volt
           # Symbolize Keys
           args = args.map do |arg|
             if arg.is_a?(Hash)
-              arg = arg.nested_symbolize_keys
+              arg = self.class.nested_symbolize_keys(arg)
             end
             arg
           end
@@ -263,11 +274,13 @@ module Volt
 
             # Grab the AST that was generated from the block call on the client.
             block_ast = args.pop
+            args = self.class.move_to_db_types(args)
 
             result = result.where(*args) do |ident|
               Sql::WhereCall.new(ident).call(block_ast)
             end
           else
+            args = self.class.move_to_db_types(args)
             result = result.send(method_name, *args)
           end
         end
@@ -280,14 +293,14 @@ module Volt
           end#.tap {|v| puts "QUERY: " + v.inspect }
 
           # Unpack extra values
-          unpack_values!(result)
+          result = unpack_values!(result)
         end
 
         result
       end
 
       def delete(collection, query)
-        query = query.nested_symbolize_keys
+        query = self.class.move_to_db_types(query)
         db.from(collection).where(query).delete
       end
 
@@ -310,22 +323,37 @@ module Volt
       end
 
 
+      def self.move_to_db_types(values)
+        values = nested_symbolize_keys(values)
+
+        values = Volt::DataTransformer.transform(values, false) do |value|
+          if defined?(VoltTime) && value.is_a?(VoltTime)
+            value.to_time
+          elsif value.is_a?(Symbol)
+            # Symbols get turned into strings
+            value.to_s
+          else
+            value
+          end
+        end
+
+        values
+      end
+
       private
 
+      def self.nested_symbolize_keys(values)
+        DataTransformer.transform_keys(values) do |key|
+          key.to_sym
+        end
+      end
 
       # Take the values and symbolize them, and also remove any values that
       # aren't going in fields and move them into extra.
       #
       # Then change VoltTime's to Time for Sequel
       def pack_values(collection, values)
-        values = values.nested_symbolize_keys
-        values = Volt::DataTransformer.transform(values) do |value|
-          if defined?(VoltTime) && value.is_a?(VoltTime)
-            value.to_time
-          else
-            value
-          end
-        end
+        values = self.class.move_to_db_types(values)
 
         klass = Volt::Model.class_at_path([collection])
         # Find any fields in values that aren't defined with a ```field```,
@@ -361,7 +389,7 @@ module Volt
 
           if extra
             extra = deserialize(extra)
-            extra.to_h.nested_symbolize_keys.each_pair do |key, new_value|
+            self.class.nested_symbolize_keys(extra.to_h).each_pair do |key, new_value|
               unless values[key]
                 values[key] = new_value
               end

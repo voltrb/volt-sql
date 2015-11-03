@@ -2,7 +2,7 @@ require 'spec_helper'
 require_relative 'helpers'
 
 describe Volt::Sql::IndexUpdater do
-  let(:db_adaptor) { Volt::DataStore.fetch }
+  let(:db_adaptor) { Volt::DataStore.fetch(volt_app) }
   let(:db) { db_adaptor.db }
   before do
     # Access store, so we trigger cleanup after
