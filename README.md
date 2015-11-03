@@ -1,4 +1,6 @@
-# volt-postgres
+# volt-sql
+
+**Note**: This is still a work in process.  We'll update this when the final version is out.
 
 This gem provides postgres support for volt.  Just include it in your gemfile and the gem will do the rest.  It is included in new projects by default (currently).
 
