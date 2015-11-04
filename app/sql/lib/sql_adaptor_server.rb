@@ -5,6 +5,7 @@ require 'fileutils'
 require 'thread'
 require 'sql/lib/migration'
 require 'sql/lib/migration_generator'
+require 'sql/lib/migration_runner'
 require 'sql/lib/reconcile'
 require 'sql/lib/sql_logger'
 require 'sql/lib/helper'
@@ -16,7 +17,7 @@ module Volt
     class SqlAdaptorServer < BaseAdaptorServer
       include Volt::Sql::SqlLogger
 
-      attr_reader :db, :sql_db, :adaptor_name
+      attr_reader :sql_db, :adaptor_name
 
       # :reconcile_complete is set to true after the initial load and reconcile.
       # Any models created after this point will attempt to be auto-reconciled.
@@ -124,6 +125,11 @@ module Volt
           reconcile! if !skip_reconcile && @app_booted
         end
 
+        @db
+      end
+
+      # Raw access to the sequel connection without auto-migrating.
+      def raw_db
         @db
       end
 

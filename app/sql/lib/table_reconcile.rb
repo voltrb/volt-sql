@@ -85,7 +85,7 @@ module Volt
           if (orphan_fields.size == 1 && new_fields.size == 1)
             from_name = orphan_fields[0]
             to_name = new_fields[0]
-            auto_migrate_field_rename(table_name, from_name, to_name)
+            @field_updater.auto_migrate_field_rename(table_name, from_name, to_name)
 
             # Move in start fields
             db_fields[to_name] = db_fields.delete(from_name)

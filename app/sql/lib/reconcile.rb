@@ -22,6 +22,9 @@ module Volt
       # reconcile takes the database from its current state to the state defined
       # in the model classes with the field helper
       def reconcile!
+        # Make sure the migrations are up to date first.
+        Volt::MigrationRunner.new(@db).run
+
         Volt::RootModels.model_classes.each do |model_class|
           TableReconcile.new(@adaptor, @db, model_class).run
         end
