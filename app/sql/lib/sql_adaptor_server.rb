@@ -319,7 +319,7 @@ module Volt
         RootModels.clear_temporary
 
         # Drop all tables
-        db(true).drop_table(*db.tables)
+        raw_db.drop_table(*db.tables)
 
         RootModels.model_classes.each do |model_klass|
           model_klass.reconciled = false

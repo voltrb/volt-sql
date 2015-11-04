@@ -32,6 +32,15 @@ module Volt
             up_code = []
             down_code = []
 
+            # First remove the default values
+            db_default = db_opts.delete(:default)
+            sequel_default = sequel_opts.delete(:default)
+
+            if db_default != sequel_default
+              up_code << "set_column_default #{table_name.inspect}, #{column_name.inspect}, #{sequel_default.inspect}"
+              down_code << "set_column_default #{table_name.inspect}, #{column_name.inspect}, #{db_default.inspect}"
+            end
+
             if db_opts != sequel_opts
               # Fetch allow_null, keeping in mind it defaults to true
               db_null = db_opts.fetch(:allow_null, true)

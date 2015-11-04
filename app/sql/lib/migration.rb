@@ -2,7 +2,7 @@
 module Volt
   class Migration
     def initialize(db=nil)
-      @db = db || Volt.current_app.database.db
+      @db ||= Volt.current_app.database.raw_db
     end
 
     def add_column(table_name, column_name, klasses, options={})
