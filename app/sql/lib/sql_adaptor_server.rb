@@ -255,7 +255,7 @@ module Volt
       end
 
       def query(collection, query)
-        allowed_methods = %w(where where_with_block offset limit count)
+        allowed_methods = %w(where where_with_block offset order limit count)
 
         result = db.from(collection.to_sym)
 
@@ -285,6 +285,21 @@ module Volt
             result = result.where(*args) do |ident|
               Sql::WhereCall.new(ident).call(block_ast)
             end
+          elsif method_name == :order
+            op = args[0]
+            unless op.is_a?(Hash)
+              raise ".order(..) should be passed a hash of field: :desc or field: :asc"
+            end
+
+            ops = op.map do |field, asc_desc|
+              if asc_desc == :asc
+                field
+              else
+                Sequel.desc(field)
+              end
+            end
+
+            result = result.order(*ops)
           else
             args = self.class.move_to_db_types(args)
             result = result.send(method_name, *args)
