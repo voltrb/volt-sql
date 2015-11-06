@@ -9,20 +9,17 @@ module Volt
     class TableReconcile
       include SqlLogger
 
-      attr_reader :field_updater
+      attr_reader :table_name, :field_updater
 
       def initialize(adaptor, db, model_class)
         @model_class = model_class
         @adaptor = adaptor
         @db = db
-        @field_updater = FieldUpdater.new(@db, self)
+        @table_name = @model_class.collection_name
+        @field_updater ||= FieldUpdater.new(@db, self)
       end
 
       def run
-        table_name = @model_class.collection_name
-
-        ensure_table(table_name)
-
         update_fields(@model_class, table_name)
 
         IndexUpdater.new(@db, @model_class, table_name)
@@ -31,7 +28,7 @@ module Volt
       end
 
       # Create an empty table if one does not exist
-      def ensure_table(table_name)
+      def ensure_table
         # Check if table exists
         if !@db.tables || !@db.tables.include?(table_name)
           log("Creating Table #{table_name}")

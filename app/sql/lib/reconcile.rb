@@ -22,12 +22,19 @@ module Volt
       # reconcile takes the database from its current state to the state defined
       # in the model classes with the field helper
       def reconcile!
+        table_reconciles = []
+        Volt::RootModels.model_classes.each do |model_class|
+          table_reconciles << TableReconcile.new(@adaptor, @db, model_class)
+        end
+
+        # Make any missing tables
+        table_reconciles.each(&:ensure_table)
+
         # Make sure the migrations are up to date first.
         Volt::MigrationRunner.new(@db).run
 
-        Volt::RootModels.model_classes.each do |model_class|
-          TableReconcile.new(@adaptor, @db, model_class).run
-        end
+        # After the migrations, reconcile tables
+        table_reconciles.each(&:run)
 
         # After the initial reconcile!, we add a listener for any new models
         # created, so we can reconcile them (in specs mostly)

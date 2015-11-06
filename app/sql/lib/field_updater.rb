@@ -37,7 +37,7 @@ module Volt
             sequel_default = sequel_opts.delete(:default)
 
             if db_default != sequel_default
-              up_code << "set_column_default #{table_name.inspect}, #{column_name.inspect}, #{sequel_default.inspect}"
+              up_code << "if column_exists?(#{table_name.inspect}, #{column_name.inspect})\n  set_column_default #{table_name.inspect}, #{column_name.inspect}, #{sequel_default.inspect}\nend"
               down_code << "set_column_default #{table_name.inspect}, #{column_name.inspect}, #{db_default.inspect}"
             end
 
@@ -49,10 +49,10 @@ module Volt
               if db_null != sequel_null
                 # allow null changed
                 if sequel_null
-                  up_code << "set_column_allow_null #{table_name.inspect}, #{column_name.inspect}"
+                  up_code << "if column_exists?(#{table_name.inspect}, #{column_name.inspect})\n  set_column_allow_null #{table_name.inspect}, #{column_name.inspect}\nend"
                   down_code << "set_column_not_null #{table_name.inspect}, #{column_name.inspect}"
                 else
-                  up_code << "set_column_not_null #{table_name.inspect}, #{column_name.inspect}"
+                  up_code << "if column_exists?(#{table_name.inspect}, #{column_name.inspect})\n  set_column_not_null #{table_name.inspect}, #{column_name.inspect}\nend"
                   down_code << "set_column_allow_null #{table_name.inspect}, #{column_name.inspect}"
                 end
 
@@ -63,7 +63,7 @@ module Volt
 
 
             if db_class != sequel_class || db_opts != sequel_opts
-              up_code << "set_column_type #{table_name.inspect}, #{column_name.inspect}, #{sequel_class}, #{sequel_opts.inspect}"
+              up_code << "if column_exists?(#{table_name.inspect}, #{column_name.inspect})\n  set_column_type #{table_name.inspect}, #{column_name.inspect}, #{sequel_class}, #{sequel_opts.inspect}\nend"
               down_code << "set_column_type #{table_name.inspect}, #{column_name.inspect}, #{db_class}, #{db_opts.inspect}"
             end
 
@@ -84,7 +84,7 @@ module Volt
         log("Rename #{from_name} to #{to_name} on table #{table_name}")
 
         name = "rename_#{table_name}_#{from_name}_to_#{to_name}"
-        up_code = "rename_column #{table_name.inspect}, #{from_name.inspect}, #{to_name.inspect}"
+        up_code = "if column_exists?(#{table_name.inspect}, #{from_name.inspect})\n  rename_column #{table_name.inspect}, #{from_name.inspect}, #{to_name.inspect}\nend"
         down_code = "rename_column #{table_name.inspect}, #{to_name.inspect}, #{from_name.inspect}"
         generate_and_run(name, up_code, down_code)
       end
@@ -93,7 +93,7 @@ module Volt
         log("Remove #{column_name} from table #{table_name}")
 
         name = "remove_#{table_name}_#{column_name}"
-        up_code = "drop_column #{table_name.inspect}, #{column_name.inspect}"
+        up_code = "if column_exists?(#{table_name.inspect}, #{column_name.inspect})\n  drop_column #{table_name.inspect}, #{column_name.inspect}\nend"
 
         sequel_class, sequel_options = @table_reconcile.sequel_class_and_opts_from_db(db_field)
         down_code = "add_column #{table_name.inspect}, #{column_name.inspect}, #{sequel_class}, #{sequel_options.inspect}"
@@ -102,6 +102,7 @@ module Volt
 
       # private
       def generate_and_run(name, up_code, down_code)
+        puts "GAR: #{up_code.inspect}"
         path = Volt::Sql::MigrationGenerator.create_migration(name, up_code, down_code)
 
         Volt::MigrationRunner.new(@db).run_migration(path, :up)

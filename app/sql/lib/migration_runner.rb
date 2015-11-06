@@ -3,6 +3,17 @@
 
 module Volt
   class MigrationRunner
+    alias_method :__run__, :run
+
+    def run(direction=:up, until_version=nil)
+      # reconcile after run in production
+      # if Volt.env.production?
+      #   Volt.current_app.database.reconcile!
+      # end
+
+      __run__(direction, until_version)
+    end
+
     def raw_db
       @raw_db ||= Volt.current_app.database.raw_db
     end

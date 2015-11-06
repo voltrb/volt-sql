@@ -33,9 +33,9 @@ module Volt
       def self.indent_string(string, count)
         string.split("\n").map.with_index do |line,index|
           if index == 0
-            string
+            line
           else
-            (' ' * count) + string
+            (' ' * count) + line
           end
         end.join("\n")
       end

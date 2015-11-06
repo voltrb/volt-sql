@@ -108,7 +108,7 @@ describe Volt::Sql::TableReconcile do
     allow(reconcile.field_updater).to receive(:generate_and_run)
     .with(
       "column_change_sample_model3s_some_num",
-      "set_column_type :sample_model3s, :some_num, String, {:allow_null=>true, :text=>true}",
+      "if column_exists?(:sample_model3s, :some_num)\n  set_column_type :sample_model3s, :some_num, String, {:allow_null=>true, :text=>true}\nend",
       "set_column_type :sample_model3s, :some_num, Fixnum, {:allow_null=>true}"
     ).and_return(nil)
 
@@ -138,7 +138,7 @@ describe Volt::Sql::TableReconcile do
     expect(reconcile.field_updater).to receive(:generate_and_run)
     .with(
       "remove_sample_model4s_some_num",
-      "drop_column :sample_model4s, :some_num",
+      "if column_exists?(:sample_model4s, :some_num)\n  drop_column :sample_model4s, :some_num\nend",
       "add_column :sample_model4s, :some_num, Fixnum, {:allow_null=>true}"
     )
 
@@ -169,7 +169,7 @@ describe Volt::Sql::TableReconcile do
     expect(reconcile.field_updater).to receive(:generate_and_run)
     .with(
       "column_change_sample_model5s_some_num",
-      "set_column_not_null :sample_model5s, :some_num",
+      "if column_exists?(:sample_model5s, :some_num)\n  set_column_not_null :sample_model5s, :some_num\nend",
       "set_column_allow_null :sample_model5s, :some_num"
     )
 

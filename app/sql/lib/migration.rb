@@ -48,5 +48,17 @@ module Volt
         set_column_default(column_name, default)
       end
     end
+
+    def table_exists?(table_name)
+      @db.tables && @db.tables.include?(table_name)
+    end
+
+    def column_exists?(table_name, column_name)
+      if table_exists?(table_name)
+        @db[table_name].columns.include?(column_name)
+      else
+        false
+      end
+    end
   end
 end
