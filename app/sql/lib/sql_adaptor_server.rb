@@ -54,9 +54,11 @@ module Volt
         end
       end
 
-      # Set db_driver on public
-      Volt.configure do |config|
-        config.db_driver = 'sqlite'
+      # Set db_driver if not set
+      unless Volt.config.db_driver
+        Volt.configure do |config|
+          config.db_driver = 'sqlite'
+        end
       end
 
       # check if the database can be connected to.
