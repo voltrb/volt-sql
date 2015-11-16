@@ -19,7 +19,7 @@ module Volt
 
       def walk(ast)
         if ast.is_a?(Array) && !ast.is_a?(Sequel::SQL::Identifier)
-          op = ast.shift
+          op, ast = ast[0], ast[1..-1]
 
           case op
           when 'c'
@@ -27,6 +27,8 @@ module Volt
           when 'a'
             # We popped off the 'a', so we just return the array
             return ast
+          when 'r'
+            return Regexp.new(ast.first)
           else
             raise "invalid op: #{op.inspect} - #{ast.inspect} - #{ast.is_a?(Array).inspect}"
           end

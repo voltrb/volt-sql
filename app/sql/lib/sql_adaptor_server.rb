@@ -281,7 +281,7 @@ module Volt
             # the query that was captured on the client with QueryIdentifier
 
             # Grab the AST that was generated from the block call on the client.
-            block_ast = args.pop
+            block_ast, args = args[-1], args[0..-2]
             args = self.class.move_to_db_types(args)
 
             result = result.where(*args) do |ident|
@@ -316,7 +316,7 @@ module Volt
           end#.tap {|v| puts "QUERY: " + v.inspect }
 
           # Unpack extra values
-          result = unpack_values!(result)
+          result = unpack_values(result)
         end
 
         result
@@ -406,7 +406,7 @@ module Volt
       # Unpacking means moving the extra field out and into the main fields.
       #
       # Then transform Time to VoltTime
-      def unpack_values!(inputs)
+      def unpack_values(inputs)
         values = inputs.each do |values|
           extra = values.delete(:extra)
 
@@ -430,7 +430,6 @@ module Volt
 
         values
       end
-
     end
 
 
